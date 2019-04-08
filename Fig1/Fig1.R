@@ -206,6 +206,22 @@ lux[[3]]$`203` <- NA
 lux <- map(1:length(lux), ~ mutate(lux[[.x]], "Intensity" = lux_expts[.x])) %>%
   bind_rows()
 
+# keep data for 2 days only
+lux <- filter(lux, Time >= 0 & Time <= 2)
+
+# make time equal to closest "true" sequence to match data across files
+true_time <- function(values) {
+  true_seq <- seq(0, 2, by = 1/24/60) %>% round(4)
+  best_time <- function(value) {
+    differences <- abs(true_seq - value)
+    hit <- which(differences == min(differences))
+    return(true_seq[hit])
+  }
+  return(unlist(map(values, best_time)))
+}
+
+lux <- mutate(lux, Time = true_time(Time))
+
 sensitivity_plot <- function(lux_df) {
   lux_df <- lux_df %>%
     gather(-Time, -Intensity, key = "Mouse", value = "Temp")
@@ -283,9 +299,10 @@ sensitivity_mean_plot <- function(sensitivity_mean_df) {
     summarize(mean = mean(Temp),
               sd = sd(Temp)) %>%
     ggplot(aes(x = log10(Intensity + 0.1), y = mean)) +
-    geom_point() +
-    geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.1) +
-    geom_smooth(se = FALSE, color = "black", span = 2) +
+    geom_point(size = 2.5) +
+    geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.1,
+                  size = 0.8) +
+    geom_smooth(se = FALSE, color = "black", span = 2, size = 1) +
     scale_x_continuous(labels = c(0, 1, 10, 100, 1000)) +
     scale_y_continuous(limits = c(36, 38), expand = c(0, 0)) +
     labs(x = "Light intensity (lux)", y = "Mean body temperature (°C)") +
